@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>YouEmbed — YouTube no-cookie embed (with Resume)</title>
+  <style>
+    html,body{margin:0;padding:0;background:#000;color:#e6eef6;font-family:system-ui, sans-serif}
+    .embed-wrap{position:relative;padding-top:56.25%;width:100%;background:#000}
+    iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}
+    .placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:#888}
+    .page{max-width:960px;margin:0 auto;padding:16px}
+    h1{font-size:18px;margin:12px 0}
+    .controls{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+    input[type=text]{flex:1;padding:8px;border-radius:6px;border:1px solid #333;background:#111;color:#eee}
+    button{padding:8px 12px;border:0;border-radius:6px;background:#1e90ff;color:#fff;cursor:pointer}
+    pre{background:#111;padding:8px;border-radius:6px;overflow:auto;font-size:12px}
+    .error{color:#ff9b9b;margin-top:8px}
+    .muted{color:#aaa;font-size:13px}
+  </style>
+  <script src="https://www.youtube.com/iframe_api"></script>
+</head>
+<body>
+  <!-- VIDEO AT TOP -->
+  <div class="embed-wrap" id="embedContainer">
+    <div id="placeholder" class="placeholder">Add a query after “?” to load a video</div>
+  </div>
+
+  <!-- BELOW VIDEO -->
+  <div class="page">
+    <h1>YouEmbed</h1>
+    <p class="muted">Quick YouTube embed using <code>youtube-nocookie.com</code>.  
+      Example: <code>?8ruYpdFvl_Q&list=PL...&start=99</code>
+    </p>
+
+    <div class="controls">
+      <input id="manual" type="text" placeholder="Paste video id or URL..." />
+      <button id="go">Embed</button>
+      <button id="copy">Copy URL</button>
+    </div>
+
+    <div class="muted" style="margin-top:6px">Embed URL:</div>
+    <pre id="embedPreview">—</pre>
+    <div class="error" id="error"></div>
+  </div>
+
+<script>
+(function(){
+  const preview = id('embedPreview');
+  const container = id('embedContainer');
+  const placeholder = id('placeholder');
+  const err = id('error');
+  const manual = id('manual');
+  const go = id('go');
+  const copyBtn = id('copy');
+  let player=null, currentVideoId=null, saveInterval=null;
+
+  function id(s){return document.getElementById(s)}
+
+  function initialLoad(){
+    const href = location.href;
+    const qIndex = href.indexOf('?');
+    if(qIndex>-1 && qIndex < href.length-1){
+      const raw = decodeURIComponent(href.slice(qIndex+1));
+      processRawInput(raw,false);
+    }
+  }
+
+  function processRawInput(raw, push=true){
+    err.textContent='';
+    raw=raw.replace(/^\?+/,'');
+
+    let videoId=null, params='';
+    const m=raw.match(/([A-Za-z0-9_-]{4,})/);
+    if(m) videoId=m[1];
+
+    // try to grab params after first &
+    const split=raw.split('&');
+    if(split.length>1) params='&'+split.slice(1).join('&');
+
+    if(!videoId){err.textContent='Invalid video ID';return;}
+    currentVideoId = videoId;
+
+    const url='https://www.youtube-nocookie.com/embed/'+videoId+'?enablejsapi=1'+params;
+    updateEmbed(url,videoId);
+    if(push) history.replaceState({},'',location.pathname+'?'+videoId+params);
+  }
+
+  // Replace iframe with YT Player
+  function updateEmbed(url,videoId){
+    preview.textContent=url;
+    placeholder.style.display='none';
+    container.innerHTML = `<div id="ytplayer"></div>`; // clear and insert placeholder div
+
+    // Wait until YouTube API is ready
+    window.onYouTubeIframeAPIReady = function(){
+      const resumeTime = localStorage.getItem("yt_resume_"+videoId) || 0;
+      player = new YT.Player("ytplayer", {
+        videoId: videoId,
+        playerVars: { start: resumeTime },
+        events: {
+          onStateChange: onPlayerStateChange
+        }
+      });
+    }
+  }
+
+  function onPlayerStateChange(event){
+    if(event.data == YT.PlayerState.PLAYING){
+      if(saveInterval) clearInterval(saveInterval);
+      saveInterval = setInterval(()=>{
+        if(player && currentVideoId){
+          localStorage.setItem("yt_resume_"+currentVideoId, Math.floor(player.getCurrentTime()));
+        }
+      },5000);
+    } else if(event.data == YT.PlayerState.ENDED){
+      if(currentVideoId) localStorage.removeItem("yt_resume_"+currentVideoId);
+    }
+  }
+
+  go.onclick=()=>processRawInput(manual.value.trim());
+  manual.onkeydown=e=>{if(e.key==='Enter')go.click()};
+  copyBtn.onclick=async()=>{
+    try{await navigator.clipboard.writeText(preview.textContent);copyBtn.textContent='Copied!';setTimeout(()=>copyBtn.textContent='Copy URL',1200);}catch{}
+  };
+
+  initialLoad();
+})();
+</script>
+</body>
+</html>
