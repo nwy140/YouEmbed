@@ -3,61 +3,44 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>YouEmbed — simple no-cookie YouTube embed</title>
+  <title>YouEmbed — YouTube no-cookie embed</title>
   <style>
-    :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa4b2;--accent:#1e90ff}
-    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071027 0%, #081426 60%);color:#e6eef6;font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial}
-    .page{max-width:1000px;margin:28px auto;padding:20px}
-    header{display:flex;gap:12px;align-items:center}
-    h1{font-size:18px;margin:0}
-    p.small{margin:6px 0 18px;color:var(--muted);font-size:13px}
-    .card{background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;box-shadow:0 4px 18px rgba(2,6,23,0.6)}
-    .embed-wrap{position:relative;padding-top:56.25%;border-radius:10px;overflow:hidden;background:#000;margin-top:12px}
-    iframe{position:absolute;left:0;top:0;width:100%;height:100%;border:0}
-    .controls{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
-    input[type=text]{flex:1;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);color:inherit}
-    button{padding:8px 10px;border-radius:8px;border:0;background:var(--accent);color:#fff;cursor:pointer}
-    .muted{color:var(--muted);font-size:13px}
-    .tiny{font-size:12px;color:var(--muted);margin-top:8px}
+    html,body{margin:0;padding:0;background:#000;color:#e6eef6;font-family:system-ui, sans-serif}
+    .embed-wrap{position:relative;padding-top:56.25%;width:100%;background:#000}
+    iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}
+    .placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:#888}
+    .page{max-width:960px;margin:0 auto;padding:16px}
+    h1{font-size:18px;margin:12px 0}
+    .controls{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+    input[type=text]{flex:1;padding:8px;border-radius:6px;border:1px solid #333;background:#111;color:#eee}
+    button{padding:8px 12px;border:0;border-radius:6px;background:#1e90ff;color:#fff;cursor:pointer}
+    pre{background:#111;padding:8px;border-radius:6px;overflow:auto;font-size:12px}
     .error{color:#ff9b9b;margin-top:8px}
-    footer{margin-top:18px;color:var(--muted);font-size:12px}
-    a.link{color:var(--accent);text-decoration:none}
-    pre.meta{background:#020613;padding:10px;border-radius:8px;overflow:auto;font-size:12px;color:var(--muted)}
+    .muted{color:#aaa;font-size:13px}
   </style>
 </head>
 <body>
-  <div class="page">
-    <header>
-      <h1>YouEmbed</h1>
-      <div class="muted">Quick no-cookie YouTube embed (client-side)</div>
-    </header>
+  <!-- VIDEO AT TOP -->
+  <div class="embed-wrap" id="embedContainer">
+    <div id="placeholder" class="placeholder">Add a query after “?” to load a video</div>
+  </div>
 
-    <p class="small">Put a query after <code>?</code> in the URL. Examples:
-      <code>?8ruYpdFvl_Q&list=PL...&start=99</code> or <code>?v=8ruYpdFvl_Q&list=...</code> or paste a full youtube URL like <code>?https://youtu.be/8ruYpdFvl_Q?list=...</code>
+  <!-- BELOW VIDEO https://chatgpt.com/share/68de2e4e-3a74-8009-ad46-829e91c1e038 -->
+  <div class="page">
+    <h1>YouEmbed</h1>
+    <p class="muted">Quick YouTube embed using <code>youtube-nocookie.com</code>.  
+      Example: <code>?8ruYpdFvl_Q&list=PL...&start=99</code>
     </p>
 
-    <div class="card" id="app">
-      <div class="controls">
-        <input id="manual" type="text" placeholder="paste video id, full YouTube URL, or query string (e.g. v=ID&list=...)" />
-        <button id="go">Embed</button>
-        <button id="copy" title="Copy embed URL">Copy URL</button>
-      </div>
-
-      <div class="tiny">Embed URL (preview):</div>
-      <pre class="meta" id="embedPreview">—</pre>
-
-      <div class="embed-wrap" id="embedContainer" aria-live="polite">
-        <!-- iframe injected here -->
-        <div id="placeholder" style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted)">No video specified — add a query after <code>?</code> or paste one above and press Embed</div>
-      </div>
-
-      <div class="error" id="error" role="status" aria-live="assertive"></div>
-
-      <footer>
-        Hosted on GitHub Pages. Uses <code>youtube-nocookie.com</code> privacy embed. <br/>
-        To create a page URL: <code>https://YOUR_USER.github.io/YouEmbed?VIDEO_ID&list=...</code>
-      </footer>
+    <div class="controls">
+      <input id="manual" type="text" placeholder="Paste video id or URL..." />
+      <button id="go">Embed</button>
+      <button id="copy">Copy URL</button>
     </div>
+
+    <div class="muted" style="margin-top:6px">Embed URL:</div>
+    <pre id="embedPreview">—</pre>
+    <div class="error" id="error"></div>
   </div>
 
 <script>
@@ -70,197 +53,55 @@
   const go = id('go');
   const copyBtn = id('copy');
 
-  // helper
   function id(s){return document.getElementById(s)}
 
-  // run on load: parse window.location.href after first '?'
   function initialLoad(){
-    const href = location.href || '';
+    const href = location.href;
     const qIndex = href.indexOf('?');
-    if(qIndex === -1 || qIndex === href.length - 1){
-      updatePreview(null);
-      return;
-    }
-    const raw = href.slice(qIndex + 1); // everything after first ?
-    processRawInput(raw, {pushHistory:false});
-  }
-
-  // main processor: raw may be:
-  // - just a video id: "8ruYpdFvl_Q"
-  // - video id with params: "8ruYpdFvl_Q&list=PL...&start=99"
-  // - a query string: "v=8ruYpdFvl_Q&list=..."
-  // - a full URL: "https://youtu.be/8ruYpdFvl_Q?list=..."
-  // - or multiple ? accidentally included
-  function processRawInput(raw, options={pushHistory:true}){
-    err.textContent = '';
-    if(!raw || !raw.trim()){
-      updatePreview(null);
-      return;
-    }
-    // Some users may pass encoded strings; decode once
-    try{ raw = decodeURIComponent(raw) } catch(e) { /* ignore */ }
-
-    // if user accidentally has leading '?', strip
-    raw = raw.replace(/^\?+/, '');
-
-    // if raw contains a full youtube URL anywhere, extract id
-    const youtubeIdFromUrl = extractIdFromAnyYouTubeUrl(raw);
-    let videoId = null;
-    let params = '';
-
-    if(youtubeIdFromUrl){
-      videoId = youtubeIdFromUrl;
-      // remove the matched URL from raw to find params (if any)
-      const afterUrl = raw.replace(/.*(youtu\.be\/[^\s?&]+|youtube\.com\/[^\s?&]+v=[^&\s]+|youtube\.com\/watch\?[^\s]+)/i, '');
-      params = normalizeParams(afterUrl);
-    } else if (/(^|&)v=[^&]+/i.test(raw)) {
-      // raw has v=ID style
-      // we want to extract v parameter as videoId and leave rest as params
-      const pairs = raw.split('&').filter(Boolean);
-      const rest = [];
-      for(const p of pairs){
-        const [k,v] = p.split('=');
-        if(k.toLowerCase()==='v'){ videoId = safe(v); }
-        else rest.push(p);
-      }
-      params = rest.length ? ('?' + rest.join('&')) : '';
-    } else {
-      // treat first token as ID, remainder as params
-      // handle case where user used '?' inside raw (e.g. pasted full url with ?)
-      // split at first & or ? to separate id and rest
-      const m = raw.match(/^([^&?]+)([?&].*)?$/);
-      if(m){
-        videoId = safe(m[1]);
-        params = normalizeParams(m[2] || '');
-      }
-    }
-
-    if(!videoId || !/^[A-Za-z0-9_\-]{4,}$/.test(videoId)){
-      updatePreview(null);
-      err.textContent = 'Could not detect a valid video ID. Try supplying the video id, or use v=ID, or paste the full youtu.be/watch URL.';
-      return;
-    }
-
-    const embedUrl = buildEmbedUrl(videoId, params);
-    updateEmbed(embedUrl);
-    if(options.pushHistory !== false){
-      // update browser URL so it matches what user supplied (but keep single ?)
-      const newUrl = location.origin + location.pathname + '?' + encodeURIComponent(videoId) + (params ? paramsToForHistory(params) : '');
-      try{ history.replaceState({},'',newUrl) } catch(e){}
+    if(qIndex>-1 && qIndex < href.length-1){
+      const raw = decodeURIComponent(href.slice(qIndex+1));
+      processRawInput(raw,false);
     }
   }
 
-  // safe sanitize
-  function safe(s){ return (s||'').toString().trim(); }
+  function processRawInput(raw, push=true){
+    err.textContent='';
+    raw=raw.replace(/^\?+/,'');
 
-  // normalize param fragment to start with '?' and have no leading '?&'
-  function normalizeParams(str){
-    if(!str) return '';
-    // str may start with '?' or '&' or '?&' etc.
-    str = str.replace(/^[\?&]+/,'');
-    if(!str) return '';
-    return '?' + str;
+    let videoId=null, params='';
+    const m=raw.match(/([A-Za-z0-9_-]{4,})/);
+    if(m) videoId=m[1];
+
+    // try to grab params after first &
+    const split=raw.split('&');
+    if(split.length>1) params='?'+split.slice(1).join('&');
+
+    if(!videoId){err.textContent='Invalid video ID';return;}
+    const url='https://www.youtube-nocookie.com/embed/'+videoId+params;
+    updateEmbed(url);
+    if(push) history.replaceState({},'',location.pathname+'?'+videoId+params);
   }
 
-  // when we put in history, we want readable params (not URL-encoded video id)
-  function paramsToForHistory(params){
-    // params is like "?list=...&start=99"
-    return params;
-  }
-
-  function buildEmbedUrl(id, params){
-    // ensure params already starts with ? or is empty
-    params = params || '';
-    return 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) + (params || '');
-  }
-
-  // inject or update iframe
   function updateEmbed(url){
-    preview.textContent = url;
-    placeholder && (placeholder.style.display = 'none');
-    const existing = container.querySelector('iframe');
-    if(existing){
-      existing.src = url;
-      return;
+    preview.textContent=url;
+    placeholder.style.display='none';
+    let ifr=container.querySelector('iframe');
+    if(!ifr){
+      ifr=document.createElement('iframe');
+      ifr.allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      ifr.allowFullscreen=true;
+      container.appendChild(ifr);
     }
-    const ifr = document.createElement('iframe');
-    ifr.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
-    ifr.allowFullscreen = true;
-    ifr.loading = 'lazy';
-    ifr.src = url;
-    container.appendChild(ifr);
+    ifr.src=url;
   }
 
-  function updatePreview(url){
-    if(!url){
-      preview.textContent = 'No embed URL.';
-      // remove iframe if exists
-      const f = container.querySelector('iframe');
-      if(f) f.remove();
-      if(placeholder) placeholder.style.display = 'flex';
-      return;
-    }
-    preview.textContent = url;
-  }
+  go.onclick=()=>processRawInput(manual.value.trim());
+  manual.onkeydown=e=>{if(e.key==='Enter')go.click()};
+  copyBtn.onclick=async()=>{
+    try{await navigator.clipboard.writeText(preview.textContent);copyBtn.textContent='Copied!';setTimeout(()=>copyBtn.textContent='Copy URL',1200);}catch{}
+  };
 
-  // attempt to extract ID from many YouTube URL forms
-  function extractIdFromAnyYouTubeUrl(text){
-    if(!text) return null;
-    // common patterns:
-    // youtu.be/ID
-    // youtube.com/watch?v=ID
-    // youtube.com/embed/ID
-    // youtube.com/v/ID
-    // full query with v=ID
-    const patterns = [
-      /youtu\.be\/([A-Za-z0-9_\-]{4,})/i,
-      /youtube(?:-nocookie)?\.com\/embed\/([A-Za-z0-9_\-]{4,})/i,
-      /youtube(?:-nocookie)?\.com\/v\/([A-Za-z0-9_\-]{4,})/i,
-      /[?&]v=([A-Za-z0-9_\-]{4,})/i,
-      /\/watch\?.*v=([A-Za-z0-9_\-]{4,})/i
-    ];
-    for(const re of patterns){
-      const m = text.match(re);
-      if(m && m[1]) return m[1];
-    }
-    return null;
-  }
-
-  // wire UI
-  go.addEventListener('click', ()=> {
-    const v = manual.value.trim();
-    if(!v) {
-      err.textContent = 'Paste a video id or URL in the input first.';
-      return;
-    }
-    processRawInput(v, {pushHistory:true});
-  });
-
-  manual.addEventListener('keydown', (ev)=>{
-    if(ev.key === 'Enter') { go.click(); ev.preventDefault(); }
-  });
-
-  copyBtn.addEventListener('click', async ()=>{
-    const text = preview.textContent || '';
-    try {
-      await navigator.clipboard.writeText(text);
-      copyBtn.textContent = 'Copied!';
-      setTimeout(()=> copyBtn.textContent = 'Copy URL', 1500);
-    } catch(e){
-      copyBtn.textContent = 'Copy failed';
-      setTimeout(()=> copyBtn.textContent = 'Copy URL', 1500);
-    }
-  });
-
-  // allow clicking preview to open embed in new tab
-  preview.addEventListener('click', ()=>{
-    const u = preview.textContent;
-    if(u && u.startsWith('http')) window.open(u,'_blank');
-  });
-
-  // initialize https://chatgpt.com/share/68de2e4e-3a74-8009-ad46-829e91c1e038
   initialLoad();
-
 })();
 </script>
 </body>
