@@ -1,239 +1,267 @@
-<!--
-youembed.github.io - Single-file GitHub Pages app
-
-How to deploy:
-1. Create a GitHub repo named YOURUSERNAME.github.io (replace YOURUSERNAME).
-2. Add this file as index.html in the repository root and commit / push.
-3. GitHub Pages will serve it at https://YOURUSERNAME.github.io
-
-Usage examples:
-https://YOURUSERNAME.github.io/kh1RqsJzUXI?list=PLQ9iZFHOkIuJcaPS805Zn14Szh5jwh5zy&t=99
-https://YOURUSERNAME.github.io/?v=kh1RqsJzUXI&t=1m39s&autoplay=1
-
-This page takes the path (first segment after "/") as the YouTube video ID if present.
-It also accepts query parameters (list, t, autoplay, rel, controls, etc.).
-Parameter "t" supports formats like "99", "1m39s", "1:39" or "1h2m3s" and will be translated to the embed's "start" parameter.
-
--->
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>YouEmbed — Simple YouTube embed shortcut</title>
+  <title>YouEmbed — simple no-cookie YouTube embed</title>
   <style>
-    :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa4b2;--accent:#ff6b6b}
-    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071027 0%,#07101a 100%);color:#e6eef6;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Apple Color Emoji,sans-serif}
-    .wrap{max-width:1100px;margin:36px auto;padding:20px}
-    .card{background:rgba(255,255,255,0.02);border-radius:12px;padding:18px;box-shadow:0 6px 30px rgba(2,6,23,0.6)}
-    h1{margin:0 0 8px;font-size:20px}
-    p.lead{margin:0;color:var(--muted)}
-    .player{position:relative;padding-top:56.25%;margin-top:18px;border-radius:10px;overflow:hidden;background:#000}
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa4b2;--accent:#1e90ff}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071027 0%, #081426 60%);color:#e6eef6;font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial}
+    .page{max-width:1000px;margin:28px auto;padding:20px}
+    header{display:flex;gap:12px;align-items:center}
+    h1{font-size:18px;margin:0}
+    p.small{margin:6px 0 18px;color:var(--muted);font-size:13px}
+    .card{background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;box-shadow:0 4px 18px rgba(2,6,23,0.6)}
+    .embed-wrap{position:relative;padding-top:56.25%;border-radius:10px;overflow:hidden;background:#000;margin-top:12px}
     iframe{position:absolute;left:0;top:0;width:100%;height:100%;border:0}
-    .meta{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
-    .input{display:flex;gap:8px}
-    input[type=text]{flex:1;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
-    button{padding:8px 12px;border-radius:8px;border:0;background:var(--accent);color:#081022;font-weight:600}
-    .small{font-size:13px;color:var(--muted)}
-    .share{display:flex;gap:8px;align-items:center}
-    a.link{color:#a9d2ff;text-decoration:none}
-    footer{margin-top:22px;color:var(--muted);font-size:13px}
-    .notice{margin-top:10px;padding:10px;border-radius:8px;background:rgba(255,255,255,0.02);color:var(--muted)}
+    .controls{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
+    input[type=text]{flex:1;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);color:inherit}
+    button{padding:8px 10px;border-radius:8px;border:0;background:var(--accent);color:#fff;cursor:pointer}
+    .muted{color:var(--muted);font-size:13px}
+    .tiny{font-size:12px;color:var(--muted);margin-top:8px}
+    .error{color:#ff9b9b;margin-top:8px}
+    footer{margin-top:18px;color:var(--muted);font-size:12px}
+    a.link{color:var(--accent);text-decoration:none}
+    pre.meta{background:#020613;padding:10px;border-radius:8px;overflow:auto;font-size:12px;color:var(--muted)}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
+  <div class="page">
+    <header>
       <h1>YouEmbed</h1>
-      <p class="lead">Use <code>https://yourusername.github.io/VIDEO_ID?params</code> to embed YouTube videos quickly. This page converts the path+query into a proper YouTube embed (handles timestamps).</p>
+      <div class="muted">Quick no-cookie YouTube embed (client-side)</div>
+    </header>
 
-      <div id="app">
-        <div class="input">
-          <input id="urlInput" type="text" placeholder="Paste a full YouTube URL or just the video ID (e.g. kh1RqsJzUXI)" />
-          <button id="goBtn">Load</button>
-        </div>
+    <p class="small">Put a query after <code>?</code> in the URL. Examples:
+      <code>?8ruYpdFvl_Q&list=PL...&start=99</code> or <code>?v=8ruYpdFvl_Q&list=...</code> or paste a full youtube URL like <code>?https://youtu.be/8ruYpdFvl_Q?list=...</code>
+    </p>
 
-        <div id="playerContainer" style="display:none">
-          <div class="player" id="player"></div>
-          <div class="meta">
-            <div class="share small">Shareable URL: <a id="shareLink" class="link" href="#" target="_blank"></a></div>
-            <div class="small"> | </div>
-            <div class="small">Embed URL: <a id="embedLink" class="link" href="#" target="_blank"></a></div>
-            <div style="margin-left:auto"><button id="copyBtn">Copy page URL</button></div>
-          </div>
-          <div class="notice small">If you enable <code>loop=1</code> this script will add a <code>playlist=VIDEO_ID</code> parameter (a YouTube requirement for loop to work).</div>
-        </div>
-
-        <div id="emptyState" style="margin-top:16px">
-          <p class="small">If you open the root URL without a video id you'll get this page. Drop a video ID in the box above or click the "Load" button to generate an embed.</p>
-        </div>
+    <div class="card" id="app">
+      <div class="controls">
+        <input id="manual" type="text" placeholder="paste video id, full YouTube URL, or query string (e.g. v=ID&list=...)" />
+        <button id="go">Embed</button>
+        <button id="copy" title="Copy embed URL">Copy URL</button>
       </div>
 
+      <div class="tiny">Embed URL (preview):</div>
+      <pre class="meta" id="embedPreview">—</pre>
+
+      <div class="embed-wrap" id="embedContainer" aria-live="polite">
+        <!-- iframe injected here -->
+        <div id="placeholder" style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted)">No video specified — add a query after <code>?</code> or paste one above and press Embed</div>
+      </div>
+
+      <div class="error" id="error" role="status" aria-live="assertive"></div>
+
       <footer>
-        Built for quick GitHub Pages embedding • Preserves playlist & timestamp parameters • Converts t -> start
+        Hosted on GitHub Pages. Uses <code>youtube-nocookie.com</code> privacy embed. <br/>
+        To create a page URL: <code>https://YOUR_USER.github.io/YouEmbed?VIDEO_ID&list=...</code>
       </footer>
     </div>
   </div>
 
-  <script>
-    // Helpers
-    function parseTimestampToSeconds(t){
-      if(t==null) return null;
-      t = String(t).trim();
-      if(!t) return null;
+<script>
+(function(){
+  const preview = id('embedPreview');
+  const container = id('embedContainer');
+  const placeholder = id('placeholder');
+  const err = id('error');
+  const manual = id('manual');
+  const go = id('go');
+  const copyBtn = id('copy');
 
-      // numeric seconds
-      if(/^\d+$/.test(t)) return parseInt(t,10);
+  // helper
+  function id(s){return document.getElementById(s)}
 
-      // formats like 1:23 or 01:02:03
-      if(/^\d{1,2}(:\d{1,2})+$/.test(t)){
-        const parts = t.split(':').map(Number);
-        let s = 0; for(let i=0;i<parts.length;i++){ s = s*60 + parts[i]; } // handles hh:mm:ss
-        return s;
+  // run on load: parse window.location.href after first '?'
+  function initialLoad(){
+    const href = location.href || '';
+    const qIndex = href.indexOf('?');
+    if(qIndex === -1 || qIndex === href.length - 1){
+      updatePreview(null);
+      return;
+    }
+    const raw = href.slice(qIndex + 1); // everything after first ?
+    processRawInput(raw, {pushHistory:false});
+  }
+
+  // main processor: raw may be:
+  // - just a video id: "8ruYpdFvl_Q"
+  // - video id with params: "8ruYpdFvl_Q&list=PL...&start=99"
+  // - a query string: "v=8ruYpdFvl_Q&list=..."
+  // - a full URL: "https://youtu.be/8ruYpdFvl_Q?list=..."
+  // - or multiple ? accidentally included
+  function processRawInput(raw, options={pushHistory:true}){
+    err.textContent = '';
+    if(!raw || !raw.trim()){
+      updatePreview(null);
+      return;
+    }
+    // Some users may pass encoded strings; decode once
+    try{ raw = decodeURIComponent(raw) } catch(e) { /* ignore */ }
+
+    // if user accidentally has leading '?', strip
+    raw = raw.replace(/^\?+/, '');
+
+    // if raw contains a full youtube URL anywhere, extract id
+    const youtubeIdFromUrl = extractIdFromAnyYouTubeUrl(raw);
+    let videoId = null;
+    let params = '';
+
+    if(youtubeIdFromUrl){
+      videoId = youtubeIdFromUrl;
+      // remove the matched URL from raw to find params (if any)
+      const afterUrl = raw.replace(/.*(youtu\.be\/[^\s?&]+|youtube\.com\/[^\s?&]+v=[^&\s]+|youtube\.com\/watch\?[^\s]+)/i, '');
+      params = normalizeParams(afterUrl);
+    } else if (/(^|&)v=[^&]+/i.test(raw)) {
+      // raw has v=ID style
+      // we want to extract v parameter as videoId and leave rest as params
+      const pairs = raw.split('&').filter(Boolean);
+      const rest = [];
+      for(const p of pairs){
+        const [k,v] = p.split('=');
+        if(k.toLowerCase()==='v'){ videoId = safe(v); }
+        else rest.push(p);
       }
-
-      // formats like 1h2m3s or 2m30s or 90s
-      const re = /(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i;
-      const m = t.match(re);
+      params = rest.length ? ('?' + rest.join('&')) : '';
+    } else {
+      // treat first token as ID, remainder as params
+      // handle case where user used '?' inside raw (e.g. pasted full url with ?)
+      // split at first & or ? to separate id and rest
+      const m = raw.match(/^([^&?]+)([?&].*)?$/);
       if(m){
-        const h = parseInt(m[1]||0,10);
-        const mm = parseInt(m[2]||0,10);
-        const s = parseInt(m[3]||0,10);
-        const total = h*3600 + mm*60 + s;
-        if(total>0) return total;
+        videoId = safe(m[1]);
+        params = normalizeParams(m[2] || '');
       }
-
-      // fallback try to extract digits
-      const digits = t.match(/\d+/);
-      return digits?parseInt(digits[0],10):null;
     }
 
-    function extractVideoIdFromString(s){
-      if(!s) return null;
-      s = s.trim();
-      // If it's already an id (11 chars or longer for modern ids)
-      if(/^[A-Za-z0-9_-]{8,}$/.test(s) && !s.includes('http')) return s;
-
-      // youtube watch?v= or v= param
-      try{
-        const url = new URL(s.startsWith('http')?s:'https://'+s);
-        // youtu.be/ID
-        if(url.hostname.includes('youtu.be')){
-          const id = url.pathname.replace(/^\//,'');
-          if(id) return id;
-        }
-        // youtube.com/watch?v=ID
-        if(url.searchParams.has('v')) return url.searchParams.get('v');
-        // sometimes path like /embed/ID
-        const m = url.pathname.match(/\/([A-Za-z0-9_-]{8,})/);
-        if(m) return m[1];
-      }catch(e){ /* ignore */ }
-      return null;
+    if(!videoId || !/^[A-Za-z0-9_\-]{4,}$/.test(videoId)){
+      updatePreview(null);
+      err.textContent = 'Could not detect a valid video ID. Try supplying the video id, or use v=ID, or paste the full youtu.be/watch URL.';
+      return;
     }
 
-    function buildEmbedUrl(videoId, originalParams, hashParams){
-      const params = new URLSearchParams();
-
-      // copy original query params but convert t -> start
-      for(const [k,v] of originalParams.entries()){
-        if(k==='v') continue; // don't forward v
-        if(k==='t'){
-          const secs = parseTimestampToSeconds(v);
-          if(secs!=null) params.set('start', String(secs));
-          continue;
-        }
-        params.set(k,v);
-      }
-
-      // also check hash params for a t= or start= (e.g. #t=1m39s)
-      if(hashParams){
-        if(hashParams.t && !params.has('start')){
-          const secs = parseTimestampToSeconds(hashParams.t);
-          if(secs!=null) params.set('start', String(secs));
-        }
-        if(hashParams.start && !params.has('start')){
-          const s = parseInt(hashParams.start,10);
-          if(!Number.isNaN(s)) params.set('start', String(s));
-        }
-      }
-
-      // If loop=1 and no playlist param, add playlist=VIDEOID (YouTube requirement for loop)
-      if(params.get('loop')==='1' && !params.has('playlist')){
-        params.set('playlist', videoId);
-      }
-
-      const q = params.toString();
-      return 'https://www.youtube.com/embed/' + encodeURIComponent(videoId) + (q?('?'+q):'');
+    const embedUrl = buildEmbedUrl(videoId, params);
+    updateEmbed(embedUrl);
+    if(options.pushHistory !== false){
+      // update browser URL so it matches what user supplied (but keep single ?)
+      const newUrl = location.origin + location.pathname + '?' + encodeURIComponent(videoId) + (params ? paramsToForHistory(params) : '');
+      try{ history.replaceState({},'',newUrl) } catch(e){}
     }
+  }
 
-    // parse hash like #t=1m30s&foo=bar
-    function parseHashParams(){
-      if(!location.hash) return {};
-      const h = location.hash.replace(/^#/,'');
-      const sp = new URLSearchParams(h);
-      const obj = {};
-      for(const [k,v] of sp.entries()) obj[k]=v;
-      return obj;
+  // safe sanitize
+  function safe(s){ return (s||'').toString().trim(); }
+
+  // normalize param fragment to start with '?' and have no leading '?&'
+  function normalizeParams(str){
+    if(!str) return '';
+    // str may start with '?' or '&' or '?&' etc.
+    str = str.replace(/^[\?&]+/,'');
+    if(!str) return '';
+    return '?' + str;
+  }
+
+  // when we put in history, we want readable params (not URL-encoded video id)
+  function paramsToForHistory(params){
+    // params is like "?list=...&start=99"
+    return params;
+  }
+
+  function buildEmbedUrl(id, params){
+    // ensure params already starts with ? or is empty
+    params = params || '';
+    return 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) + (params || '');
+  }
+
+  // inject or update iframe
+  function updateEmbed(url){
+    preview.textContent = url;
+    placeholder && (placeholder.style.display = 'none');
+    const existing = container.querySelector('iframe');
+    if(existing){
+      existing.src = url;
+      return;
     }
+    const ifr = document.createElement('iframe');
+    ifr.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    ifr.allowFullscreen = true;
+    ifr.loading = 'lazy';
+    ifr.src = url;
+    container.appendChild(ifr);
+  }
 
-    // init
-    (function(){
-      const urlParams = new URLSearchParams(location.search);
-      const hashParams = parseHashParams();
-      const path = location.pathname.replace(/^\//,'').replace(/\/$/,'');
-      let videoId = path || urlParams.get('v') || null;
+  function updatePreview(url){
+    if(!url){
+      preview.textContent = 'No embed URL.';
+      // remove iframe if exists
+      const f = container.querySelector('iframe');
+      if(f) f.remove();
+      if(placeholder) placeholder.style.display = 'flex';
+      return;
+    }
+    preview.textContent = url;
+  }
 
-      const input = document.getElementById('urlInput');
-      const goBtn = document.getElementById('goBtn');
-      const playerContainer = document.getElementById('playerContainer');
-      const player = document.getElementById('player');
-      const shareLink = document.getElementById('shareLink');
-      const embedLink = document.getElementById('embedLink');
-      const copyBtn = document.getElementById('copyBtn');
+  // attempt to extract ID from many YouTube URL forms
+  function extractIdFromAnyYouTubeUrl(text){
+    if(!text) return null;
+    // common patterns:
+    // youtu.be/ID
+    // youtube.com/watch?v=ID
+    // youtube.com/embed/ID
+    // youtube.com/v/ID
+    // full query with v=ID
+    const patterns = [
+      /youtu\.be\/([A-Za-z0-9_\-]{4,})/i,
+      /youtube(?:-nocookie)?\.com\/embed\/([A-Za-z0-9_\-]{4,})/i,
+      /youtube(?:-nocookie)?\.com\/v\/([A-Za-z0-9_\-]{4,})/i,
+      /[?&]v=([A-Za-z0-9_\-]{4,})/i,
+      /\/watch\?.*v=([A-Za-z0-9_\-]{4,})/i
+    ];
+    for(const re of patterns){
+      const m = text.match(re);
+      if(m && m[1]) return m[1];
+    }
+    return null;
+  }
 
-      // If path is empty but the user has a query param v, show that as well on load
-      if(videoId){
-        // attempt to extract if someone pasted full URL into path (rare)
-        const maybe = extractVideoIdFromString(videoId);
-        if(maybe) videoId = maybe;
-        renderForVideo(videoId, urlParams, hashParams);
-      }
+  // wire UI
+  go.addEventListener('click', ()=> {
+    const v = manual.value.trim();
+    if(!v) {
+      err.textContent = 'Paste a video id or URL in the input first.';
+      return;
+    }
+    processRawInput(v, {pushHistory:true});
+  });
 
-      goBtn.addEventListener('click', ()=>{
-        const text = input.value.trim();
-        const vid = extractVideoIdFromString(text);
-        if(!vid){ alert('Could not parse a video ID from that string. Try a raw video ID (e.g. kh1RqsJzUXI) or a full YouTube URL.'); return; }
-        // Build a friendly URL for the user and update history
-        const newUrl = location.origin + location.pathname.replace(/\/[^/]*$/,'/') + vid + location.search + location.hash;
-        history.replaceState({},'', '/' + vid + location.search + location.hash);
-        renderForVideo(vid, new URLSearchParams(location.search), parseHashParams());
-      });
+  manual.addEventListener('keydown', (ev)=>{
+    if(ev.key === 'Enter') { go.click(); ev.preventDefault(); }
+  });
 
-      copyBtn.addEventListener('click', ()=>{
-        const url = location.href;
-        navigator.clipboard.writeText(url).then(()=>{ copyBtn.textContent='Copied!'; setTimeout(()=>copyBtn.textContent='Copy page URL',1200); }).catch(()=>{ alert('Copy failed — please copy manually: '+url); });
-      });
+  copyBtn.addEventListener('click', async ()=>{
+    const text = preview.textContent || '';
+    try {
+      await navigator.clipboard.writeText(text);
+      copyBtn.textContent = 'Copied!';
+      setTimeout(()=> copyBtn.textContent = 'Copy URL', 1500);
+    } catch(e){
+      copyBtn.textContent = 'Copy failed';
+      setTimeout(()=> copyBtn.textContent = 'Copy URL', 1500);
+    }
+  });
 
-      function renderForVideo(vid, params, hparams){
-        if(!vid) return;
-        playerContainer.style.display='block';
-        document.getElementById('emptyState').style.display='none';
-        const embedUrl = buildEmbedUrl(vid, params, hparams);
-        player.innerHTML = '<iframe src="'+embedUrl+'" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>';
+  // allow clicking preview to open embed in new tab
+  preview.addEventListener('click', ()=>{
+    const u = preview.textContent;
+    if(u && u.startsWith('http')) window.open(u,'_blank');
+  });
 
-        // share and embed links
-        const pageUrl = location.origin + '/' + vid + (location.search||'') + (location.hash||'');
-        shareLink.href = pageUrl; shareLink.textContent = pageUrl;
-        embedLink.href = embedUrl; embedLink.textContent = embedUrl;
-      }
+  // initialize
+  initialLoad();
 
-      // also allow pressing Enter in the input field
-      input.addEventListener('keydown', (e)=>{ if(e.key==='Enter') goBtn.click(); });
-
-      // Prepopulate input with path or v param
-      if(videoId) input.value = videoId;
-
-    })();
-  </script>
+})();
+</script>
 </body>
 </html>
